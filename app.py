@@ -3,10 +3,21 @@ import pandas as pd
 import joblib
 from datetime import datetime
 import math
+from huggingface_hub import hf_hub_download
 
-# Load trained model
-model = joblib.load("best_model.pkl")
+# ----------- Load trained model from Hugging Face Hub -----------
+@st.cache_data
+def load_model():
+    # Download the model from Hugging Face
+    file_path = hf_hub_download(
+        repo_id="devanshty1/amazon_delivery_model",
+        filename="best_model.pkl"  # must match uploaded filename
+    )
+    model = joblib.load(file_path)
+    return model
+model = load_model()
 
+# ----------- Streamlit App -----------
 st.title("🚚 Amazon Delivery Time Prediction")
 
 # Inputs
@@ -26,12 +37,11 @@ category = st.selectbox("Category", ["Food", "Grocery", "Electronics"])
 order_date = st.date_input("Order Date")
 order_time = st.time_input("Order Time")
 
-# ----- Feature Engineering (must match training pipeline) -----
+# ----------- Feature Engineering -----------
 order_datetime = datetime.combine(order_date, order_time)
 order_month = order_datetime.month
 order_day = order_datetime.day
 
-# Haversine Distance (if you used it in training)
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371  # Earth radius in km
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -42,7 +52,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
 distance_km = haversine(store_lat, store_long, drop_lat, drop_long)
 
-# Create input dataframe with ALL columns
+# ----------- Prepare input dataframe -----------
 input_df = pd.DataFrame([{
     "Vehicle": vehicle,
     "Weather": weather,
@@ -60,7 +70,7 @@ input_df = pd.DataFrame([{
     "Distance_km": distance_km
 }])
 
-# Prediction
+# ----------- Prediction -----------
 if st.button("Predict Delivery Time"):
     prediction = model.predict(input_df)[0]
     st.success(f"📦 Estimated Delivery Time: {prediction:.2f} hours")
